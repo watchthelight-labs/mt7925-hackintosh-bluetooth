@@ -1,0 +1,35 @@
+name: Report
+description: A bug, or a report from another machine
+body:
+  - type: input
+    id: machine
+    attributes:
+      label: Laptop model
+      placeholder: Legion 5 15IAX10 (83F0)
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: macOS build, OpenCore version, MtkBt and BlueToolFixup versions
+      placeholder: 26.7.1 (25G241), OpenCore 1.0.8, MtkBt 0.2.0, BlueToolFixup 2.7.2
+    validations:
+      required: true
+  - type: textarea
+    id: ioreg
+    attributes:
+      label: Output of ioreg -rc MtkBt -l | grep MtkBt
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: profiler
+    attributes:
+      label: Output of system_profiler SPBluetoothDataType (first 20 lines, remove addresses if you like)
+      render: text
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true

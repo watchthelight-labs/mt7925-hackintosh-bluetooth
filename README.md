@@ -1,0 +1,107 @@
+# MtkBt
+
+> **Heads up:** a good portion of this code is AI generated. I do understand how it works,
+> and I'm happy to explain any of it. If something looks wrong or you have a question,
+> open an issue or ping me on Discord (`watchthelight`).
+
+Bluetooth firmware loader for the MediaTek MT7925 on macOS. The card's Bluetooth half is a USB device (`0489:E111`, "Wireless_Device") that enumerates as a normal HCI controller but answers nothing until its RAM code has been downloaded. macOS has no loader for MediaTek parts, so `bluetoothd` sees an empty controller. MtkBt downloads the firmware, turns the Bluetooth function on and then lets go of the interface, and from there `bluetoothd` (with BlueToolFixup) drives it from user space like any third-party USB dongle. For OpenCore hackintosh on macOS Sequoia and Tahoe; written for a Lenovo Legion 5 15IAX10.
+
+## Status
+
+| Version | Tested on | Result |
+|---|---|---|
+| 0.2.0 | Legion 5 15IAX10, macOS 26.7.1 (25G241), OpenCore 1.0.8, BlueToolFixup 2.7.2 | controller on at every boot since 2026-10-16; AirPods Pro pair, connect and play; `MtkBtState` = `ready`, 3 sections and 447,872 bytes sent, about 20 s from open to close on the current boot |
+| 0.1.0 | same laptop, macOS 15.8.1 (24H32) | first version that brought the controller up on cold boots |
+
+What the firmware answers for the FUNC_CTRL status word is not what Linux expects: this chip and firmware (build 20260813113236) return `0xffff` and Bluetooth still comes on, so the value is only recorded.
+
+The MT7925 has two things `bluetoothd` on macOS 26.7.1 does not expect (an LE connection quirk that crash-loops `bluetoothd`, and a Read Clock reply that leaves AirPods silent). Those are not firmware loading problems and live in a separate Lilu plugin, [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix). You want both.
+
+## What it can't do
+
+- It only loads firmware. Everything after that (pairing, audio, LE) is Apple's `bluetoothd` with BlueToolFixup's patches, and whatever the MT7925 firmware does with it.
+- Only chip id 0x7925 is touched; anything else on that USB id is left alone.
+- The half-loaded recovery path (subsystem reset after a warm reboot that left the firmware running) is implemented from the Linux driver but has not been seen to trigger on this laptop since 0.2.0, so it is untested on real hardware.
+- No sleep and wake handling (the laptop this runs on has sleep disabled). At power off and restart it sends FUNC_CTRL 0 so the next boot starts clean.
+- Tested on one laptop and one firmware build.
+
+## Installation
+
+1. Get `MtkBt.kext` from the [releases](../../releases), or build it (below). The release zip carries `LICENSE`, `NOTICE.md` and `LICENSES/` because the licences require them next to the binary.
+2. Install BlueToolFixup (from acidanthera's BrcmPatchRAM release), which needs Lilu. Its changelog for 2.7.0 asks for two NVRAM keys so `bluetoothd` accepts a third-party controller; add them to `NVRAM > Add` and `NVRAM > Delete` under `7C436110-AB2A-4BBB-A880-FE41995C9F82`:
+
+   ```
+   bluetoothExternalDongleFailed      Data  00
+   bluetoothInternalControllerInfo    Data  00000000000000000000000000000000 (14 bytes of zero here)
+   ```
+
+3. Copy the kext to `EFI/OC/Kexts/` and add it to `config.plist`, `Kernel > Add`, after Lilu and BlueToolFixup:
+
+   ```
+   BundlePath      MtkBt.kext
+   ExecutablePath  Contents/MacOS/MtkBt
+   PlistPath       Contents/Info.plist
+   MinKernel       21.0.0
+   MaxKernel       (empty)
+   Enabled         true
+   ```
+
+   It depends only on IOUSBHostFamily and the kernel KPIs, not on Lilu.
+4. Make sure the USB port the Bluetooth device sits on is enabled in your USB map. On the Legion 5 15IAX10 it is `HS14`, which Lenovo's firmware marks as not connectable, so the port needs a `_UPC` patch (in the OpenCore config of [Legion-5-15IAX10-OpenCore](https://github.com/watchthelight-labs/Legion-5-15IAX10-OpenCore)).
+5. Reboot and check:
+
+   ```
+   kmutil showloaded | grep -E 'MtkBt|BlueToolFixup'
+   ioreg -rc MtkBt -l | grep MtkBt
+   system_profiler SPBluetoothDataType | head -20
+   ```
+
+   Expected on a cold boot: `MtkBtState` = `ready`, `MtkBtChipId` ending in 7925 (31013 decimal), `MtkBtSectionsSent` = 3, `MtkBtBytesSent` = 447872, and `system_profiler` shows a real address, State On and Chipset `THIRD_PARTY_DONGLE` instead of a placeholder controller with Address NULL. After a restart, skipped sections or a `MtkBtWarmPath` value are normal.
+6. If `MtkBtState` is `error`, `MtkBtLog` and `MtkBtStep` say where it stopped. Rollback: set `Enabled` to false on the MtkBt entry (and BlueToolFixup). Nothing is written to flash or to the chip's non-volatile storage.
+
+## Registry properties
+
+`ioreg -rc MtkBt -l | grep MtkBt`
+
+| Property | Meaning |
+|---|---|
+| `MtkBtState` | `starting`, `loading`, `ready`, `error`, `stopped`, `off` (FUNC_CTRL 0 sent) |
+| `MtkBtTries` | download passes in this start (1 normally, up to 3 with the half-loaded recovery) |
+| `MtkBtLastError` | last error line; kept after a successful recovery, so it shows what triggered it |
+| `MtkBtStep` | last step entered: `open`, `chip id`, `download`, `hci probe`, `subsys reset`, `ep reset option`, `func ctrl`, `close`, `done` |
+| `MtkBtLog` | every step and error, `;` separated (first 1.5 KB kept) |
+| `MtkBtVersion` | kext version |
+| `MtkBtFirmware`, `MtkBtFirmwareSha256`, `MtkBtFirmwareBytes` | the embedded blob |
+| `MtkBtFirmwareBuild`, `MtkBtFirmwareHwSw` | build time and hw/sw version from the blob header |
+| `MtkBtChipId`, `MtkBtFwVersion`, `MtkBtFwFlavor` | read from the chip |
+| `MtkBtEndpoints` | interrupt IN, bulk IN, bulk OUT addresses of interface 0 |
+| `MtkBtOpenTries` | attempts until the interface opened |
+| `MtkBtSections`, `MtkBtSectionsSent`, `MtkBtSectionsSkipped`, `MtkBtBytesSent`, `MtkBtBlocksSent` | download counters |
+| `MtkBtFuncCtrlStatus` | status word of the FUNC_CTRL event |
+| `MtkBtWarmPath`, `MtkBtSubsysReset` | only set when the warm-reboot handling ran |
+| `MtkBtFuncOff` | where FUNC_CTRL 0 was sent (`stop`, `restart`, `power off`) or `failed` |
+| `MtkBtIntrPackets` | HCI event packets read and dropped during setup |
+| `MtkBtElapsedMs` | time from open to close |
+
+## Building
+
+```
+tools/build-mac.sh      # macOS with the Xcode Command Line Tools; out/MtkBt.kext, prints the sha256
+```
+
+`tools/gen_firmware.py` embeds `firmware/BT_RAM_CODE_MT7925_1_1_hdr.bin` after checking it against `firmware/SHA256SUMS`. The 0.2.0 release binary (sha256 `4f982556a6dd0edc...`, full value in the release notes) is the file that has been running on the test laptop; a clean build of this tree with Apple clang 17 reproduces it.
+
+## How it works
+
+On start, in its own kernel thread so boot is never held up: open interface 0, keep a read running on the interrupt endpoint so events cannot back up, read the chip id, send each firmware section through WMT PATCH_DWNLD (skipping sections the chip reports as already loaded), write the endpoint reset option, send WMT FUNC_CTRL 1, close the interface. WMT commands are HCI vendor command 0xFC6F as a class request on the control endpoint; the WMT event is polled with a vendor IN request. The warm-reboot handling and the exact sequence are in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+
+## Credits
+
+- Linux **btmtk** (`drivers/bluetooth/btmtk.c`, MediaTek, ISC): the whole procedure and every register and opcode.
+- **itlmt7925 / MtkBtFw** by thanhnndev and contributors (Clear BSD): the interface match, the open / work / close shape and the interrupt drain were adapted from it; their notice stays in `src/MtkBt.cpp`.
+- **BlueToolFixup** (acidanthera BrcmPatchRAM, Dhinak G): what makes `bluetoothd` accept the controller afterwards.
+- MediaTek firmware from linux-firmware, unmodified.
+
+## Licence
+
+ISC, except the parts adapted from MtkBtFw (Clear BSD, notice in `src/MtkBt.cpp` and `LICENSES/`). The firmware is MediaTek's under `LICENSES/LICENCE.mediatek`. `LICENSE`, `NOTICE.md` and `LICENSES/` must travel with any built copy of the kext.
