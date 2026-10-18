@@ -75,6 +75,8 @@ keys from the installation steps (`nvram -p | grep -i bluetooth` must list both)
    ```
 
    It depends only on IOUSBHostFamily and the kernel KPIs, not on Lilu.
+   On macOS 26.7.1 (25G241) also add [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix) after BlueToolFixup. Without it `bluetoothd` crashes every few seconds once an LE device is around (the MT7925 rejects an LE connection that uses a random address `bluetoothd` never set), and Bluetooth turns itself off a moment after it comes up. Seen on the Legion and on an ASRock X870.
+
 4. Make sure the USB port the Bluetooth device sits on is enabled in your USB map. On the Legion 5 15IAX10 it is `HS14`, which Lenovo's firmware marks as not connectable, so the port needs a `_UPC` patch (in the OpenCore config of [Legion-5-15IAX10-OpenCore](https://github.com/watchthelight-labs/Legion-5-15IAX10-OpenCore)).
 5. Reboot and check:
 
