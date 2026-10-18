@@ -30,8 +30,9 @@ The MT7925 has two things `bluetoothd` on macOS 26.7.1 does not expect (an LE co
 MT7925 cards from different makers carry different USB ids for the Bluetooth half. 0.2.2 matches every id the Linux
 `btusb` driver lists for the MT7925 (2026-10): Foxconn `0489:E111 E113 E118 E11E E124 E139 E13A E0FA E10F E110 E116 E14E
 E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`, plus MediaTek `0E8D:0717`, the AMD RZ717
-card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Only `0489:E111` (the Legion 5 15IAX10) has been
-tested; the firmware and the loading protocol are the same for all of them. To see what your card reports:
+card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Tested: `0489:E111` (the Legion 5 15IAX10) and
+`0E8D:0717` (ASRock X870 Steel Legend WiFi, macOS 26.7.1, controller On as THIRD_PARTY_DONGLE). The firmware and the
+loading protocol are the same for all of them. To see what your card reports:
 
 ```
 ioreg -p IOUSB -l -w0 | grep -E '"USB Product Name"|"idVendor"|"idProduct"'
