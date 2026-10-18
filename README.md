@@ -43,10 +43,14 @@ check that USBToolBox actually attached to the chipset controller (a `UTB Versio
 on Windows can name the controller by an ACPI path macOS never exposes, and then the chipset ports stay at defaults.
 A MediaTek id that is not in the list above: open an issue with the output and I will add it.
 
-The `0E8D:0717` flavour also needs the sleep protection bypass that 0.2.2 adds (see the changelog): with the protection
-active the chip takes the WMT download command and never answers, so the kext loads but the controller never comes up.
-The bypass is written for every card; on the Legion's `0489:E111` it was never needed, and a card that does not answer
-the register read simply carries on without it.
+0.2.2 also sets the MT7925 sleep protection bypass that Linux added for the `0E8D:0717` flavour (see the changelog):
+with the protection active the chip takes the WMT download command and never answers. It is written for every card as a
+precaution; the Legion's `0489:E111` and the first `0717` report both loaded their firmware without it, and a card that
+does not answer the register read simply carries on.
+
+If `MtkBtState` is `ready` and `system_profiler SPBluetoothDataType` still shows the placeholder controller (Chipset
+`BCM_4350C2`, Address NULL), the loader did its job and `bluetoothd` is not adopting the dongle: check the two NVRAM
+keys from the installation steps (`nvram -p | grep -i bluetooth` must list both), then the BlueToolFixup load.
 
 ## Installation
 
