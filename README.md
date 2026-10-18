@@ -1,4 +1,4 @@
-# MtkBt
+# MtkBt: MediaTek MT7925 Bluetooth firmware loader for macOS Hackintosh
 
 > **Heads up:** a good portion of this code is AI generated. I do understand how it works,
 > and I'm happy to explain any of it. If something looks wrong or you have a question,
