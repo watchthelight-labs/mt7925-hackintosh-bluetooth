@@ -15,14 +15,69 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.0</string>
+	<string>0.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.2.0</string>
+	<string>0.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>MT7925 Bluetooth (0489:E111 interface 0)</key>
+		<key>MT7925 Bluetooth, Foxconn ids (0489)</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>org.watchthelight.MtkBt</string>
+			<key>IOClass</key>
+			<string>MtkBt</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBHostInterface</string>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>57617</integer>
+				<integer>57619</integer>
+				<integer>57624</integer>
+				<integer>57630</integer>
+				<integer>57636</integer>
+				<integer>57657</integer>
+				<integer>57658</integer>
+				<integer>57594</integer>
+				<integer>57615</integer>
+				<integer>57616</integer>
+				<integer>57622</integer>
+				<integer>57678</integer>
+				<integer>57679</integer>
+				<integer>57680</integer>
+				<integer>57681</integer>
+			</array>
+			<key>idVendor</key>
+			<integer>1161</integer>
+		</dict>
+		<key>MT7925 Bluetooth, IMC Networks ids (13d3)</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>org.watchthelight.MtkBt</string>
+			<key>IOClass</key>
+			<string>MtkBt</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBHostInterface</string>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>13704</integer>
+				<integer>13826</integer>
+				<integer>13827</integer>
+				<integer>13828</integer>
+			</array>
+			<key>idVendor</key>
+			<integer>5075</integer>
+		</dict>
+		<key>MT7925 Bluetooth, MediaTek id (0e8d:8c38)</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>org.watchthelight.MtkBt</string>
@@ -35,9 +90,9 @@
 			<key>bInterfaceNumber</key>
 			<integer>0</integer>
 			<key>idProduct</key>
-			<integer>57617</integer>
+			<integer>35896</integer>
 			<key>idVendor</key>
-			<integer>1161</integer>
+			<integer>3725</integer>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>

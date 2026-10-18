@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (2026-10-18)
+
+- Matches every MT7925 Bluetooth USB id the Linux `btusb` driver knows (Foxconn 0489 family, IMC Networks 13D3 family, MediaTek 0E8D:8C38), as three personalities with `idProductArray`. 0.2.0 matched only `0489:E111`. No code change.
+
 ## 0.2.0 (2026-10-17)
 
 - Warm-reboot handling: sections the chip reports as loaded are skipped; a half-loaded chip gets the MT7925 subsystem reset and a fresh download (at most 3 passes); a firmware that already answers HCI is left alone.

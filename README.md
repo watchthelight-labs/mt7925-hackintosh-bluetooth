@@ -25,6 +25,21 @@ The MT7925 has two things `bluetoothd` on macOS 26.7.1 does not expect (an LE co
 - No sleep and wake handling (the laptop this runs on has sleep disabled). At power off and restart it sends FUNC_CTRL 0 so the next boot starts clean.
 - Tested on one laptop and one firmware build.
 
+## Which cards match
+
+MT7925 cards from different makers carry different USB ids for the Bluetooth half. 0.2.1 matches every id the Linux
+`btusb` driver lists for the MT7925 (2026-10): Foxconn `0489:E111 E113 E118 E11E E124 E139 E13A E0FA E10F E110 E116 E14E
+E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`. Only `0489:E111` (the Legion 5 15IAX10)
+has been tested; the firmware and the loading protocol are the same for all of them. To see what your card reports:
+
+```
+ioreg -p IOUSB -l -w0 | grep -E '"USB Product Name"|"idVendor"|"idProduct"'
+```
+
+(ids print in decimal: 1161 = 0x0489, 5075 = 0x13D3, 3725 = 0x0E8D). No MediaTek device in that list means the USB port
+it sits on is not in your USB map, not a driver problem: fix the map first. A MediaTek id that is not in the list above:
+open an issue with the output and I will add it.
+
 ## Installation
 
 1. Get `MtkBt.kext` from the [releases](../../releases), or build it (below). The release zip carries `LICENSE`, `NOTICE.md` and `LICENSES/` because the licences require them next to the binary.
