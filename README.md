@@ -59,7 +59,7 @@ keys from the installation steps (`nvram -p | grep -i bluetooth` must list both)
 
    ```
    bluetoothExternalDongleFailed      Data  00
-   bluetoothInternalControllerInfo    Data  00000000000000000000000000000000 (14 bytes of zero here)
+   bluetoothInternalControllerInfo    Data  0000000000000000000000000000 (exactly 14 zero bytes, 28 hex digits; 16 bytes makes bluetoothd log "CFDataGetLength(internalControllerInfoRef) != 14" and fall back to the UART placeholder)
    ```
 
 3. Copy the kext to `EFI/OC/Kexts/` and add it to `config.plist`, `Kernel > Add`, after Lilu and BlueToolFixup:
