@@ -15,10 +15,12 @@ Everything runs in a kernel thread started from `start()`, so the boot is never 
 1. **Open** interface 0, retrying for up to 10 s if something else holds it (`MtkBtOpenTries`).
 2. **Endpoints**: walk the interface descriptor for the interrupt IN, bulk IN and bulk OUT pipes (`MtkBtEndpoints`). Start a read on the interrupt IN pipe and keep it running, dropping whatever arrives (`MtkBtIntrPackets`), so events cannot back up and stall the firmware during setup.
 3. **Identify**: vendor request 0x63 reads the chip id (register 0x70010200), firmware version (0x80021004) and flavor (0x70010020). Anything but 0x7925 ends here.
-4. **Download** `BT_RAM_CODE_MT7925_1_1_hdr.bin` (embedded at build time with its SHA-256). The blob has a 32-byte header, a 64-byte global descriptor and a section map of up to 16 entries; this one has 5 sections, 3 with payload (74,176, 332,224 and 41,472 bytes). For each section: a WMT PATCH_DWNLD query carrying the 52-byte section spec, which the firmware answers with download, already loaded, or busy. Already loaded is skipped (as Linux does), busy is retried every 100 ms up to 20 times, otherwise the section goes out in 250-byte blocks with a first / middle / last flag. Then 110 ms for activation.
-5. **Endpoint reset option**: register 0x74011890 = 0x00010001, as `btmtk_usb_setup` does for the 7925.
-6. **FUNC_CTRL 1**: turn the Bluetooth function on; the status word from the event is recorded (`MtkBtFuncCtrlStatus`).
-7. **Close**: stop the interrupt read, close the interface, `MtkBtState` = `ready`.
+4. **Sleep protection bypass** (0.2.2): read `0x18011100` through the uhw path, set bit 1, write it back. The MT7925 BT core ignores WMT commands while sleep protection is active, which is the state the `0E8D:0717` card wakes up in on AM5 desktop boards; the Linux fix for that card does the same read-modify-write here and again after activation. The step is repeated after each subsystem reset. A failed access is logged in `MtkBtSlpProt` and the start goes on without it.
+5. **Download** `BT_RAM_CODE_MT7925_1_1_hdr.bin` (embedded at build time with its SHA-256). The blob has a 32-byte header, a 64-byte global descriptor and a section map of up to 16 entries; this one has 5 sections, 3 with payload (74,176, 332,224 and 41,472 bytes). For each section: a WMT PATCH_DWNLD query carrying the 52-byte section spec, which the firmware answers with download, already loaded, or busy. Already loaded is skipped (as Linux does), busy is retried every 100 ms up to 20 times, otherwise the section goes out in 250-byte blocks with a first / middle / last flag. Then 110 ms for activation.
+6. **Sleep protection bypass again**: activation turns the protection back on, so the same write as step 4 goes out before FUNC_CTRL.
+7. **Endpoint reset option**: register 0x74011890 = 0x00010001, as `btmtk_usb_setup` does for the 7925.
+8. **FUNC_CTRL 1**: turn the Bluetooth function on; the status word from the event is recorded (`MtkBtFuncCtrlStatus`).
+9. **Close**: stop the interrupt read, close the interface, `MtkBtState` = `ready`.
 
 WMT commands are HCI vendor command 0xFC6F sent as a class request on the default control endpoint. The WMT event (HCI event 0xE4) is read back with a vendor IN request (bRequest 1, wValue 0x30), polled for at most 2 s per command.
 
@@ -38,6 +40,6 @@ Every wait has a deadline. Every failure ends with `MtkBtState` = `error`, the s
 
 ## Known risks
 
-- The uhw register reads (request type 0xDE) are only used on the subsystem reset path and have not been exercised through IOUSBHost on this laptop. If IOUSBHost rejects the odd recipient bits, the reset path fails cleanly with a `uhw ... read failed` line.
+- The uhw register reads (request type 0xDE) run on every start since 0.2.2 (the sleep protection bypass) and on the subsystem reset path. If IOUSBHost rejects the odd recipient bits, the bypass is skipped with a `uhw ... read failed` line and `MtkBtSlpProt` = `read failed`, and the reset path fails cleanly the same way.
 - If `bluetoothd` opens the interface before MtkBt (it should not at boot, since kexts start first), MtkBt waits 10 s and gives up with `interface busy`.
 - The FUNC_CTRL status word this firmware returns is `0xffff`, not the `0x0404` Linux checks for, and Bluetooth still comes on. The value is recorded, not acted on.

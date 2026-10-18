@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.1</string>
+	<string>0.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.2.1</string>
+	<string>0.2.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MT7925 Bluetooth, Foxconn ids (0489)</key>
@@ -77,7 +77,7 @@
 			<key>idVendor</key>
 			<integer>5075</integer>
 		</dict>
-		<key>MT7925 Bluetooth, MediaTek id (0e8d:8c38)</key>
+		<key>MT7925 Bluetooth, MediaTek ids (0e8d)</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>org.watchthelight.MtkBt</string>
@@ -89,8 +89,11 @@
 			<integer>1</integer>
 			<key>bInterfaceNumber</key>
 			<integer>0</integer>
-			<key>idProduct</key>
-			<integer>35896</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>35896</integer>
+				<integer>1815</integer>
+			</array>
 			<key>idVendor</key>
 			<integer>3725</integer>
 		</dict>

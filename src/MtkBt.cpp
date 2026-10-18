@@ -97,6 +97,8 @@ constexpr uint32_t kEpRstOpt = 0x74011890;      // MTK_EP_RST_OPT
 constexpr uint32_t kEpRstInOut = 0x00010001;    // MTK_EP_RST_IN_OUT_OPT
 constexpr uint32_t kUdmaIntStaBt = 0x74000024;  // MTK_UDMA_INT_STA_BT
 constexpr uint32_t kUdmaIntStaBt1 = 0x74000308; // MTK_UDMA_INT_STA_BT1
+constexpr uint32_t kHwEmiCtl = 0x18011100;      // MT_HW_EMI_CTL (mt792x_regs.h): BT core sleep protection
+constexpr uint32_t kSlpProtBypass = 0x00000002;  // bit 1: SLPPROT bypass, the chip answers WMT while it is set
 
 // patch status, as btmtk_usb_hci_wmt_sync maps the PATCH_DWNLD event flag
 enum { PATCH_UNDONE = 0, PATCH_PROGRESS = 1, PATCH_DONE = 2 };
@@ -172,6 +174,7 @@ private:
     bool regRead(uint32_t reg, uint32_t *val);
     bool uhwRead(uint32_t reg, uint32_t *val);
     bool uhwWrite(uint32_t reg, uint32_t val);
+    bool slpProtBypass(const char *when);
     int wmt(uint8_t op, uint8_t flag, const uint8_t *data, uint16_t dlen, uint8_t *evOut, uint32_t evOutLen);
     int download();
     bool hciAlive();
@@ -267,6 +270,31 @@ bool MtkBt::uhwWrite(uint32_t reg, uint32_t val) {
         fail("uhw %08x write failed %08x", reg, r);
         return false;
     }
+    return true;
+}
+
+// Sleep protection bypass for the 7925 (linux-bluetooth, 2026-05-31, "Bluetooth: btmtk: Fix MT7925 WMT command
+// timeout due to sleep protection"): with SLPPROT active the BT core ignores WMT commands, so the download query
+// gets no event (seen on the 0e8d:0717 flavour, the AMD RZ717 on desktop boards). Linux reads 0x18011100 through
+// the uhw path, sets bit 1 and writes it back, before the download and again after activation (activation turns
+// the protection back on, so FUNC_CTRL would time out too). Best effort here: a failed access is logged and the
+// start carries on, since the 0489:E111 came up for months without this write.
+bool MtkBt::slpProtBypass(const char *when) {
+    uint32_t v = 0;
+    if (!uhwRead(kHwEmiCtl, &v)) {
+        fail("slpprot %s: read failed, going on without the bypass", when);
+        setProperty("MtkBtSlpProt", "read failed");
+        return false;
+    }
+    uint32_t before = v;
+    v |= kSlpProtBypass;
+    if (!uhwWrite(kHwEmiCtl, v)) {
+        fail("slpprot %s: write failed, going on without the bypass", when);
+        setProperty("MtkBtSlpProt", "write failed");
+        return false;
+    }
+    say("slpprot %s: %08x -> %08x", when, before, v);
+    setProperty("MtkBtSlpProt", before & kSlpProtBypass ? "was already bypassed" : "bypass set");
     return true;
 }
 
@@ -630,6 +658,8 @@ bool MtkBt::setup() {
     for (uint32_t pass = 1;; pass++) {
         setProperty("MtkBtTries", pass, 32);
         sectionsSent = sectionsSkipped = 0;
+        step("slpprot bypass");
+        slpProtBypass(pass == 1 ? "before download" : "after subsys reset");
         step("download");
         int d = download();
         setProperty("MtkBtSectionsSent", sectionsSent, 32);
@@ -661,6 +691,10 @@ bool MtkBt::setup() {
             return false;
         resyncEndpoints();
     }
+
+    // activation turns sleep protection back on; without this FUNC_CTRL gets no event on the 0717
+    step("slpprot bypass");
+    slpProtBypass("after activation");
 
     step("ep reset option");
     if (!uhwWrite(kEpRstOpt, kEpRstInOut))
@@ -773,7 +807,7 @@ bool MtkBt::start(IOService *provider) {
     lock = IOLockAlloc();
     if (!cmd || !ev || !lock)
         return false;
-    setProperty("MtkBtVersion", "0.2.0");
+    setProperty("MtkBtVersion", "0.2.2");
     setProperty("MtkBtFirmware", mtk_bt_fw_name);
     setProperty("MtkBtFirmwareSha256", mtk_bt_fw_sha256);
     setProperty("MtkBtFirmwareBytes", mtk_bt_fw_len, 32);

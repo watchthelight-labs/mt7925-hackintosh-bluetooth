@@ -27,18 +27,26 @@ The MT7925 has two things `bluetoothd` on macOS 26.7.1 does not expect (an LE co
 
 ## Which cards match
 
-MT7925 cards from different makers carry different USB ids for the Bluetooth half. 0.2.1 matches every id the Linux
+MT7925 cards from different makers carry different USB ids for the Bluetooth half. 0.2.2 matches every id the Linux
 `btusb` driver lists for the MT7925 (2026-10): Foxconn `0489:E111 E113 E118 E11E E124 E139 E13A E0FA E10F E110 E116 E14E
-E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`. Only `0489:E111` (the Legion 5 15IAX10)
-has been tested; the firmware and the loading protocol are the same for all of them. To see what your card reports:
+E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`, plus MediaTek `0E8D:0717`, the AMD RZ717
+card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Only `0489:E111` (the Legion 5 15IAX10) has been
+tested; the firmware and the loading protocol are the same for all of them. To see what your card reports:
 
 ```
 ioreg -p IOUSB -l -w0 | grep -E '"USB Product Name"|"idVendor"|"idProduct"'
 ```
 
-(ids print in decimal: 1161 = 0x0489, 5075 = 0x13D3, 3725 = 0x0E8D). No MediaTek device in that list means the USB port
-it sits on is not in your USB map, not a driver problem: fix the map first. A MediaTek id that is not in the list above:
-open an issue with the output and I will add it.
+(ids print in decimal: 1161 = 0x0489, 5075 = 0x13D3, 3725 = 0x0E8D; 0x0717 is 1815). No MediaTek device in that list
+means the USB port it sits on is not in your USB map, not a driver problem: fix the map first. On AMD desktop boards
+check that USBToolBox actually attached to the chipset controller (a `UTB Version` property on it in ioreg); a map made
+on Windows can name the controller by an ACPI path macOS never exposes, and then the chipset ports stay at defaults.
+A MediaTek id that is not in the list above: open an issue with the output and I will add it.
+
+The `0E8D:0717` flavour also needs the sleep protection bypass that 0.2.2 adds (see the changelog): with the protection
+active the chip takes the WMT download command and never answers, so the kext loads but the controller never comes up.
+The bypass is written for every card; on the Legion's `0489:E111` it was never needed, and a card that does not answer
+the register read simply carries on without it.
 
 ## Installation
 
@@ -83,7 +91,7 @@ open an issue with the output and I will add it.
 | `MtkBtState` | `starting`, `loading`, `ready`, `error`, `stopped`, `off` (FUNC_CTRL 0 sent) |
 | `MtkBtTries` | download passes in this start (1 normally, up to 3 with the half-loaded recovery) |
 | `MtkBtLastError` | last error line; kept after a successful recovery, so it shows what triggered it |
-| `MtkBtStep` | last step entered: `open`, `chip id`, `download`, `hci probe`, `subsys reset`, `ep reset option`, `func ctrl`, `close`, `done` |
+| `MtkBtStep` | last step entered: `open`, `chip id`, `slpprot bypass`, `download`, `hci probe`, `subsys reset`, `ep reset option`, `func ctrl`, `close`, `done` |
 | `MtkBtLog` | every step and error, `;` separated (first 1.5 KB kept) |
 | `MtkBtVersion` | kext version |
 | `MtkBtFirmware`, `MtkBtFirmwareSha256`, `MtkBtFirmwareBytes` | the embedded blob |
@@ -94,6 +102,7 @@ open an issue with the output and I will add it.
 | `MtkBtSections`, `MtkBtSectionsSent`, `MtkBtSectionsSkipped`, `MtkBtBytesSent`, `MtkBtBlocksSent` | download counters |
 | `MtkBtFuncCtrlStatus` | status word of the FUNC_CTRL event |
 | `MtkBtWarmPath`, `MtkBtSubsysReset` | only set when the warm-reboot handling ran |
+| `MtkBtSlpProt` | sleep protection bypass: `bypass set`, `was already bypassed`, `read failed`, `write failed` |
 | `MtkBtFuncOff` | where FUNC_CTRL 0 was sent (`stop`, `restart`, `power off`) or `failed` |
 | `MtkBtIntrPackets` | HCI event packets read and dropped during setup |
 | `MtkBtElapsedMs` | time from open to close |
