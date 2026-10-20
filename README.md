@@ -4,7 +4,24 @@
 > and I'm happy to explain any of it. If something looks wrong or you have a question,
 > open an issue or ping me on Discord (`watchthelight`).
 
-Bluetooth firmware loader for the MediaTek MT7925 on macOS. The card's Bluetooth half is a USB device (`0489:E111`, "Wireless_Device") that enumerates as a normal HCI controller but answers nothing until its RAM code has been downloaded. macOS has no loader for MediaTek parts, so `bluetoothd` sees an empty controller. MtkBt downloads the firmware, turns the Bluetooth function on and then lets go of the interface, and from there `bluetoothd` (with BlueToolFixup) drives it from user space like any third-party USB dongle. For OpenCore hackintosh on macOS Sequoia and Tahoe; written for a Lenovo Legion 5 15IAX10.
+Bluetooth for the MediaTek MT7925 (Filogic 360, the Wi-Fi 7 card in many 2025 laptops and the AMD RZ717 on AM5
+boards) on a Hackintosh. The card's Bluetooth half is a USB device (`0489:E111` on the Legion, 20 other ids below)
+that enumerates as a normal HCI controller but answers nothing until its RAM code has been downloaded. macOS has no
+loader for MediaTek parts, so `bluetoothd` sees an empty controller. MtkBt downloads the firmware, turns the Bluetooth
+function on and then lets go of the interface, and from there `bluetoothd` (with BlueToolFixup) drives it from user
+space like any third-party USB dongle: pairing, AirPods, LE devices. For OpenCore on macOS Sequoia 15 and Tahoe 26;
+written for a Lenovo Legion 5 15IAX10, confirmed on an ASRock X870 too.
+
+## The MT7925 set
+
+| Repo | What it does |
+|---|---|
+| [mt7925-hackintosh-wifi](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi) | the Wi-Fi driver for the same card (cards table, comparison with SimpleMtkWlan) |
+| [mt7925-hackintosh-wifi-native](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi-native) | macOS's own Wi-Fi menu on top of the driver, no client app |
+| mt7925-hackintosh-bluetooth (this one) | the Bluetooth firmware loader |
+| [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix) | on Tahoe 26.7.1: two `bluetoothd` patches the MT7925 needs (crash loop on LE connect, silent AirPods) |
+
+A complete EFI that uses the set: [Legion-5-15IAX10-OpenCore](https://github.com/watchthelight-labs/Legion-5-15IAX10-OpenCore).
 
 ## Status
 
