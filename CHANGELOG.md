@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 (2026-10-21)
+
+- Warm restart fix for a chip that still holds part of the firmware from the previous boot (#1). When sections 0 and 1 came back "already loaded", 0.2.2 sent only section 2, called the download good, and then gave up when FUNC_CTRL got no event (`MtkBtLastError` = `wmt op 6 flag 0: no event`, state `error`, Bluetooth off). A silent FUNC_CTRL after a pass that reused loaded sections now counts as half-loaded: the MT7925 subsystem reset runs, the whole firmware is downloaded again and FUNC_CTRL is retried, within the same limit of 2 resets. Cold boots and passes that downloaded everything themselves behave as before.
+
 ## 0.2.2 (2026-10-18)
 
 - Matches MediaTek `0E8D:0717`, the AMD RZ717 card on AM5 desktop boards (first seen on an ASRock X870 Steel Legend WiFi running Tahoe).

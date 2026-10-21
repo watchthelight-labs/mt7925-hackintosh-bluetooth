@@ -43,7 +43,9 @@
 // of firmware chatter meanwhile. 0.2 handles it in three ways:
 //   * a pass that fails after the chip already holds part of the firmware (a section reported loaded or sent in
 //     this pass), or any failed block, counts as "half-loaded": the MT7925 subsystem reset of
-//     btmtk_usb_subsys_reset runs and the whole download is repeated, at most kMaxResets times;
+//     btmtk_usb_subsys_reset runs and the whole download is repeated, at most kMaxResets times. Since 0.2.3 the
+//     same goes for a download that "succeeds" by reusing sections from the previous boot but whose FUNC_CTRL then
+//     gets no event (issue #1: sections 0 and 1 already loaded, section 2 sent, FUNC_CTRL silent);
 //   * when the very first WMT query gets no event, an HCI Read Local Version is sent first; a Command Complete on
 //     the interrupt endpoint means the firmware is up and the device is left as it is (as in 0.1);
 //   * at system power off / restart (IOPMrootDomain priority interest) and in stop(), WMT FUNC_CTRL 0 is sent as
@@ -179,6 +181,7 @@ private:
     int download();
     bool hciAlive();
     bool subsysReset();
+    int funcOn();
     void resyncEndpoints();
     void intrArm();
     static void intrDone(void *owner, void *param, IOReturn status, uint32_t bytes);
@@ -664,8 +667,18 @@ bool MtkBt::setup() {
         int d = download();
         setProperty("MtkBtSectionsSent", sectionsSent, 32);
         setProperty("MtkBtSectionsSkipped", sectionsSkipped, 32);
-        if (d == DL_OK)
-            break;
+        if (d == DL_OK) {
+            int f = funcOn();
+            if (f >= 0)
+                return true;
+            // FUNC_CTRL got no event after a pass that reused sections left over from the previous boot: the
+            // chip holds a mix of old and new firmware and never starts it (issue #1, B850 desktop, 0.2.2).
+            // Treat it like a half-loaded chip: reset the subsystem and download everything again.
+            if (stopping || f != -2 || !sectionsSkipped)
+                return false;
+            say("func ctrl silent after reusing %u loaded sections", sectionsSkipped);
+            d = DL_HALF;
+        }
         if (stopping || (d != DL_NO_EVENT && d != DL_HALF))
             return false;
         if (d == DL_NO_EVENT && pass == 1) {
@@ -691,25 +704,29 @@ bool MtkBt::setup() {
             return false;
         resyncEndpoints();
     }
+}
 
+// After a good download: SLPPROT bypass again, endpoint reset option, WMT FUNC_CTRL 1. Returns 0 when Bluetooth
+// is on, -2 when FUNC_CTRL got no event, -1 on any other failure.
+int MtkBt::funcOn() {
     // activation turns sleep protection back on; without this FUNC_CTRL gets no event on the 0717
     step("slpprot bypass");
     slpProtBypass("after activation");
 
     step("ep reset option");
     if (!uhwWrite(kEpRstOpt, kEpRstInOut))
-        return false;
+        return -1;
 
     step("func ctrl");
     uint8_t on = 1, e[16] = {0};
     int n = wmt(WMT_FUNC_CTRL, 0, &on, 1, e, sizeof(e));
     if (n < 0)
-        return false;
+        return n == -2 ? -2 : -1;
     // struct btmtk_hci_wmt_evt_funcc: __be16 status after the 7-byte header; 0x404 = ON_DONE, 0x420 = ON_PROGRESS
     uint32_t st = n >= 9 ? ((uint32_t)e[7] << 8 | e[8]) : 0xFFFF;
     setProperty("MtkBtFuncCtrlStatus", st, 32);
     say("bluetooth function on (flag %u status %04x)", e[6], st);
-    return true;
+    return 0;
 }
 
 // btmtk_usb_shutdown: WMT FUNC_CTRL with param 0 ("Disable the device"), status ignored as in Linux. Sent once, at
@@ -807,7 +824,7 @@ bool MtkBt::start(IOService *provider) {
     lock = IOLockAlloc();
     if (!cmd || !ev || !lock)
         return false;
-    setProperty("MtkBtVersion", "0.2.2");
+    setProperty("MtkBtVersion", "0.2.3");
     setProperty("MtkBtFirmware", mtk_bt_fw_name);
     setProperty("MtkBtFirmwareSha256", mtk_bt_fw_sha256);
     setProperty("MtkBtFirmwareBytes", mtk_bt_fw_len, 32);
