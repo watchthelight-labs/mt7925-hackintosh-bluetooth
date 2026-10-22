@@ -1,9 +1,5 @@
 # MtkBt: MediaTek MT7925 Bluetooth firmware loader for macOS Hackintosh
 
-> **Heads up:** a good portion of this code is AI generated. I do understand how it works,
-> and I'm happy to explain any of it. If something looks wrong or you have a question,
-> open an issue or ping me on Discord (`watchthelight`).
-
 Bluetooth for the MediaTek MT7925 (Filogic 360, the Wi-Fi 7 card in many 2025 laptops and the AMD RZ717 on AM5
 boards) on a Hackintosh. The card's Bluetooth half is a USB device (`0489:E111` on the Legion, 20 other ids below)
 that enumerates as a normal HCI controller but answers nothing until its RAM code has been downloaded. macOS has no
