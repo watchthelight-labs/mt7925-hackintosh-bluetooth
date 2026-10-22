@@ -51,8 +51,9 @@
 //   * at system power off / restart (IOPMrootDomain priority interest) and in stop(), WMT FUNC_CTRL 0 is sent as
 //     Linux btmtk_usb_shutdown does, so the next boot finds the function off and the WMT channel quiet.
 // Linux follows the subsystem reset with a USB port reset (btusb_mtk_reset: usb_queue_reset_device); here the
-// endpoint toggles of interface 0 are resynced with CLEAR_FEATURE(ENDPOINT_HALT) instead (IOUSBHostPipe::clearStall),
-// so no re-enumeration loop is possible.
+// endpoint toggles of interface 0 are resynced with CLEAR_FEATURE(ENDPOINT_HALT) instead (IOUSBHostPipe::clearStall).
+// That alone did not rule out a loop: on some boards the chip itself may drop off the bus during the reset, so 0.2.4
+// also caps resets at kMaxResetsPerBoot across all instances.
 //
 // Every wait has a deadline, every failure ends in MtkBtState = "error" with the interface closed. Nothing panics.
 // Result: ioreg -rc MtkBt -l | grep MtkBt
@@ -68,6 +69,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <IOKit/usb/IOUSBHostInterface.h>
 #include <IOKit/usb/IOUSBHostPipe.h>
+#include <libkern/OSAtomic.h>
 #include <kern/thread.h>
 #include <kern/clock.h>
 #include <stdarg.h>
@@ -115,6 +117,12 @@ constexpr uint32_t kOpenTimeoutMs = 10000;
 constexpr uint32_t kOffOpenTimeoutMs = 1000;    // FUNC_CTRL 0: bluetoothd has let go by then, or it is skipped
 constexpr uint32_t kOffLockWaitMs = 5000;       // FUNC_CTRL 0: how long to wait for a worker that is still loading
 constexpr uint32_t kMaxResets = 2;              // subsystem resets (each followed by a full download) per start
+constexpr uint32_t kMaxResetsPerBoot = 2;       // the same, across every MtkBt instance since the kext loaded
+
+// Shared by all instances for the life of the kext (one boot). If a subsystem reset makes the chip drop off the
+// bus, it re-enumerates, a fresh MtkBt starts and would reset it again: a loop that kept the whole USB controller
+// busy on issue #1 (keyboard and mouse frozen 3-5 s, working 1 s, over and over). The per-boot budget ends that.
+static volatile SInt32 gResetsThisBoot = 0;
 constexpr uint32_t kCmdBufSize = 512, kEvBufSize = 64, kIntrBufSize = 1024;
 
 inline uint32_t le32(const uint8_t *p) {
@@ -693,6 +701,12 @@ bool MtkBt::setup() {
             fail("download still failing after %u subsys resets, giving up", kMaxResets);
             return false;
         }
+        if (OSIncrementAtomic(&gResetsThisBoot) >= (SInt32)kMaxResetsPerBoot) {
+            setProperty("MtkBtWarmPath", "reset budget for this boot used up, giving up");
+            fail("%u subsys resets already done this boot, not resetting again (power off fully to recover)",
+                 kMaxResetsPerBoot);
+            return false;
+        }
         const char *why = d == DL_HALF ? "half-loaded" : "no WMT event";
         say("pass %u: %s, subsys reset", pass, why);
         setProperty("MtkBtWarmPath", d == DL_HALF ? "half-loaded, subsys reset" : "no WMT event, subsys reset");
@@ -824,7 +838,7 @@ bool MtkBt::start(IOService *provider) {
     lock = IOLockAlloc();
     if (!cmd || !ev || !lock)
         return false;
-    setProperty("MtkBtVersion", "0.2.3");
+    setProperty("MtkBtVersion", "0.2.4");
     setProperty("MtkBtFirmware", mtk_bt_fw_name);
     setProperty("MtkBtFirmwareSha256", mtk_bt_fw_sha256);
     setProperty("MtkBtFirmwareBytes", mtk_bt_fw_len, 32);
