@@ -14,4 +14,4 @@ Cross-checked against and partly adapted from `kexts/MtkBtFw/MtkBtFw.cpp` of htt
 - `src/kmod_info.c` reproduces the `kmod_info` block Xcode generates, using Apple's `KMOD_EXPLICIT_DECL` macro.
 
 ## Everything else
-Copyright (C) 2026 watchthelight, ISC (`LICENSE`). A good portion of the code was written with Claude Code (Anthropic); see the note at the top of the README.
+Copyright (C) 2026 watchthelight, ISC (`LICENSE`). A good portion of the code was written with Claude Code (Anthropic).

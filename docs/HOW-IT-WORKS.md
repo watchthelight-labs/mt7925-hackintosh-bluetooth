@@ -6,21 +6,21 @@ The MT7925's Bluetooth function is a USB device (`0489:E111`) with three interfa
 
 ## Where it sits in the stack
 
-Apple's `AppleUSBHostCompositeDevice` matches the device (class EF/02/01, interface association) and sets configuration 1, which publishes the three interfaces as `IOUSBHostInterface` nubs with no driver attached. On macOS 15 and 26 there is no in-kernel Bluetooth USB transport: `bluetoothd` opens the interface from user space through IOUSBLib. So MtkBt is an interface driver, not a device driver: one personality on `IOUSBHostInterface`, idVendor 0x0489, idProduct 0xE111, configuration 1, interface 0. It opens the interface, does its work, closes it, and stays attached but idle. Apple's normal path is untouched, and `bluetoothd` later opens the same interface as if nothing had happened. A device-level driver (the BrcmPatchRAM3 approach) would have to replace the composite driver and configure the device itself for no gain.
+Apple's `AppleUSBHostCompositeDevice` matches the device (class EF/02/01, interface association) and sets configuration 1, which publishes the three interfaces as `IOUSBHostInterface` nubs with no driver attached. On macOS 15 and 26 there is no in-kernel Bluetooth USB transport: `bluetoothd` opens the interface from user space through IOUSBLib. So MtkBt is an interface driver with one personality on `IOUSBHostInterface`, idVendor 0x0489, idProduct 0xE111, configuration 1, interface 0. It opens the interface, does its work, closes it, and stays attached but idle. Apple's normal path is untouched, and `bluetoothd` later opens the same interface as if nothing had happened. A device-level driver (the BrcmPatchRAM3 approach) would have to replace the composite driver and configure the device itself for no gain.
 
 ## The sequence
 
 Everything runs in a kernel thread started from `start()`, so the boot is never held up, and every wait has a deadline.
 
-1. **Open** interface 0, retrying for up to 10 s if something else holds it (`MtkBtOpenTries`).
-2. **Endpoints**: walk the interface descriptor for the interrupt IN, bulk IN and bulk OUT pipes (`MtkBtEndpoints`). Start a read on the interrupt IN pipe and keep it running, dropping whatever arrives (`MtkBtIntrPackets`), so events cannot back up and stall the firmware during setup.
-3. **Identify**: vendor request 0x63 reads the chip id (register 0x70010200), firmware version (0x80021004) and flavor (0x70010020). Anything but 0x7925 ends here.
-4. **Sleep protection bypass** (0.2.2): read `0x18011100` through the uhw path, set bit 1, write it back. The MT7925 BT core ignores WMT commands while sleep protection is active, which is the state the `0E8D:0717` card wakes up in on AM5 desktop boards; the Linux fix for that card does the same read-modify-write here and again after activation. The step is repeated after each subsystem reset. A failed access is logged in `MtkBtSlpProt` and the start goes on without it.
-5. **Download** `BT_RAM_CODE_MT7925_1_1_hdr.bin` (embedded at build time with its SHA-256). The blob has a 32-byte header, a 64-byte global descriptor and a section map of up to 16 entries; this one has 5 sections, 3 with payload (74,176, 332,224 and 41,472 bytes). For each section: a WMT PATCH_DWNLD query carrying the 52-byte section spec, which the firmware answers with download, already loaded, or busy. Already loaded is skipped (as Linux does), busy is retried every 100 ms up to 20 times, otherwise the section goes out in 250-byte blocks with a first / middle / last flag. Then 110 ms for activation.
-6. **Sleep protection bypass again**: activation turns the protection back on, so the same write as step 4 goes out before FUNC_CTRL.
-7. **Endpoint reset option**: register 0x74011890 = 0x00010001, as `btmtk_usb_setup` does for the 7925.
-8. **FUNC_CTRL 1**: turn the Bluetooth function on; the status word from the event is recorded (`MtkBtFuncCtrlStatus`).
-9. **Close**: stop the interrupt read, close the interface, `MtkBtState` = `ready`.
+1. Open interface 0, retrying for up to 10 s if something else holds it (`MtkBtOpenTries`).
+2. Endpoints: walk the interface descriptor for the interrupt IN, bulk IN and bulk OUT pipes (`MtkBtEndpoints`). Start a read on the interrupt IN pipe and keep it running, dropping whatever arrives (`MtkBtIntrPackets`), so events cannot back up and stall the firmware during setup.
+3. Identify: vendor request 0x63 reads the chip id (register 0x70010200), firmware version (0x80021004) and flavor (0x70010020). Anything but 0x7925 ends here.
+4. Sleep protection bypass (0.2.2): read `0x18011100` through the uhw path, set bit 1, write it back. The MT7925 BT core ignores WMT commands while sleep protection is active, which is the state the `0E8D:0717` card wakes up in on AM5 desktop boards; the Linux fix for that card does the same read-modify-write here and again after activation. The step is repeated after each subsystem reset. A failed access is logged in `MtkBtSlpProt` and the start goes on without it.
+5. Download `BT_RAM_CODE_MT7925_1_1_hdr.bin` (embedded at build time with its SHA-256). The blob has a 32-byte header, a 64-byte global descriptor and a section map of up to 16 entries; this one has 5 sections, 3 with payload (74,176, 332,224 and 41,472 bytes). For each section: a WMT PATCH_DWNLD query carrying the 52-byte section spec, which the firmware answers with download, already loaded, or busy. Already loaded is skipped (as Linux does), busy is retried every 100 ms up to 20 times, otherwise the section goes out in 250-byte blocks with a first / middle / last flag. Then 110 ms for activation.
+6. Sleep protection bypass again: activation turns the protection back on, so the same write as step 4 goes out before FUNC_CTRL.
+7. Endpoint reset option: register 0x74011890 = 0x00010001, as `btmtk_usb_setup` does for the 7925.
+8. FUNC_CTRL 1: turn the Bluetooth function on; the status word from the event is recorded (`MtkBtFuncCtrlStatus`).
+9. Close: stop the interrupt read, close the interface, `MtkBtState` = `ready`.
 
 WMT commands are HCI vendor command 0xFC6F sent as a class request on the default control endpoint. The WMT event (HCI event 0xE4) is read back with a vendor IN request (bRequest 1, wValue 0x30), polled for at most 2 s per command.
 
@@ -34,11 +34,10 @@ macOS never turns the Bluetooth function off at shutdown (Linux does, in `btmtk_
 
 Since 0.2.0 the laptop this runs on has booted with `MtkBtTries` = 1 every time, so the reset path is implemented from the Linux driver but not yet exercised on hardware.
 
-## Failure handling
+## Failures and known risks
 
-Every wait has a deadline. Every failure ends with `MtkBtState` = `error`, the step name in `MtkBtStep`, the error line in `MtkBtLastError`, the whole trace in `MtkBtLog`, and the interface closed. Nothing panics on purpose.
+Any failure ends with `MtkBtState` = `error`, the step name in `MtkBtStep`, the error line in `MtkBtLastError`, the whole trace in `MtkBtLog`, and the interface closed. There are no deliberate panics.
 
-## Known risks
 
 - The uhw register reads (request type 0xDE) run on every start since 0.2.2 (the sleep protection bypass) and on the subsystem reset path. If IOUSBHost rejects the odd recipient bits, the bypass is skipped with a `uhw ... read failed` line and `MtkBtSlpProt` = `read failed`, and the reset path fails cleanly the same way.
 - If `bluetoothd` opens the interface before MtkBt (it should not at boot, since kexts start first), MtkBt waits 10 s and gives up with `interface busy`.

@@ -51,16 +51,16 @@ loading protocol are the same for all of them. To see what your card reports:
 ioreg -p IOUSB -l -w0 | grep -E '"USB Product Name"|"idVendor"|"idProduct"'
 ```
 
-(ids print in decimal: 1161 = 0x0489, 5075 = 0x13D3, 3725 = 0x0E8D; 0x0717 is 1815). No MediaTek device in that list
-means the USB port it sits on is not in your USB map, not a driver problem: fix the map first. On AMD desktop boards
+(ids print in decimal: 1161 = 0x0489, 5075 = 0x13D3, 3725 = 0x0E8D; 0x0717 is 1815). If no MediaTek device shows up,
+the USB port it sits on is missing from your USB map, so fix the map before suspecting the driver. On AMD desktop boards
 check that USBToolBox actually attached to the chipset controller (a `UTB Version` property on it in ioreg); a map made
 on Windows can name the controller by an ACPI path macOS never exposes, and then the chipset ports stay at defaults.
-A MediaTek id that is not in the list above: open an issue with the output and I will add it.
+If your MediaTek id isn't in the list above, open an issue with the output and I will add it.
 
 0.2.2 also sets the MT7925 sleep protection bypass that Linux added for the `0E8D:0717` flavour (see the changelog):
 with the protection active the chip takes the WMT download command and never answers. It is written for every card as a
 precaution; the Legion's `0489:E111` and the first `0717` report both loaded their firmware without it, and a card that
-does not answer the register read simply carries on.
+does not answer the register read carries on.
 
 If `MtkBtState` is `ready` and `system_profiler SPBluetoothDataType` still shows the placeholder controller (Chipset
 `BCM_4350C2`, Address NULL), the loader did its job and `bluetoothd` is not adopting the dongle: check the two NVRAM
