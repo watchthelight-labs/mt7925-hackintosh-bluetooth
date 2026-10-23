@@ -43,7 +43,7 @@ The MT7925 has two things `bluetoothd` on macOS 26.7.1 does not expect (an LE co
 MT7925 cards from different makers carry different USB ids for the Bluetooth half. 0.2.2 matches every id the Linux
 `btusb` driver lists for the MT7925 (2026-10): Foxconn `0489:E111 E113 E118 E11E E124 E139 E13A E0FA E10F E110 E116 E14E
 E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`, plus MediaTek `0E8D:0717`, the AMD RZ717
-card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Tested: `0489:E111` (the Legion 5 15IAX10) and
+card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Tested: `0E8D:8C38` (HP OMEN 16-ap1xxx on 0.2.4, reported in [Game-5040/hackintosh-hp-8f06-macos26](https://github.com/Game-5040/hackintosh-hp-8f06-macos26)), `0489:E111` (the Legion 5 15IAX10) and
 `0E8D:0717` (ASRock X870 Steel Legend WiFi, macOS 26.7.1, controller On as THIRD_PARTY_DONGLE). The firmware and the
 loading protocol are the same for all of them. To see what your card reports:
 
@@ -143,6 +143,7 @@ On start, in its own kernel thread so boot is never held up: open interface 0, k
 
 - Linux **btmtk** (`drivers/bluetooth/btmtk.c`, MediaTek, ISC): the whole procedure and every register and opcode.
 - **itlmt7925 / MtkBtFw** by thanhnndev and contributors (Clear BSD): the interface match, the open / work / close shape and the interrupt drain were adapted from it; their notice stays in `src/MtkBt.cpp`.
+- **SimpleMtkBtFw** fork by flxxxxddd ([flxxxxddd/SimpleMtkBtFw](https://github.com/flxxxxddd/SimpleMtkBtFw)): rewriting the ACL packet-boundary flag to first non-flushable and asking Read Clock for clock 1 fixed AirPods audio on an MT7921K. The first is our lead for the A2DP drop; untested on the MT7925.
 - **BlueToolFixup** (acidanthera BrcmPatchRAM, Dhinak G): what makes `bluetoothd` accept the controller afterwards.
 - MediaTek firmware from linux-firmware, unmodified.
 
