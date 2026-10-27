@@ -23,7 +23,7 @@ A complete EFI that uses the set: [Legion-5-15IAX10-OpenCore](https://github.com
 
 | Version | Tested on | Result |
 |---|---|---|
-| 0.2.4 | Legion 5 15IAX10, macOS 26.7.1 (25G241), OpenCore 1.0.8 | loaded on the Legion since N-267 (2026-10-23); changes since 0.2.0 are for other boards (more USB ids, the AMD RZ717 sleep-protection bypass, a warm-restart fix and a per-boot reset cap, reported in #1) and are not exercised on the Legion's own chip |
+| 0.2.4 | Legion 5 15IAX10, macOS 26.7.1 (25G241), OpenCore 1.0.8 | loaded on the Legion since N-261 (2026-10-23); changes since 0.2.0 are for other boards (more USB ids, the AMD RZ717 sleep-protection bypass, a warm-restart fix and a per-boot reset cap, reported in #1) and are not exercised on the Legion's own chip |
 | 0.2.0 | Legion 5 15IAX10, macOS 26.7.1 (25G241), OpenCore 1.0.8, BlueToolFixup 2.7.2 | controller on at every boot since 2026-10-16; AirPods Pro pair, connect and play; `MtkBtState` = `ready`, 3 sections and 447,872 bytes sent, about 20 s from open to close on the current boot |
 | 0.1.0 | same laptop, macOS 15.8.1 (24H32) | first version that brought the controller up on cold boots |
 
