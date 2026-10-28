@@ -45,7 +45,9 @@ MT7925 cards from different makers carry different USB ids for the Bluetooth hal
 `btusb` driver lists for the MT7925 (2026-10): Foxconn `0489:E111 E113 E118 E11E E124 E139 E13A E0FA E10F E110 E116 E14E
 E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`, plus MediaTek `0E8D:0717`, the AMD RZ717
 card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Tested: `0E8D:8C38` (HP OMEN 16-ap1xxx on 0.2.4, reported in [Game-5040/hackintosh-hp-8f06-macos26](https://github.com/Game-5040/hackintosh-hp-8f06-macos26)), `0489:E111` (the Legion 5 15IAX10) and
-`0E8D:0717` (ASRock X870 Steel Legend WiFi, macOS 26.7.1, controller On as THIRD_PARTY_DONGLE). The firmware and the
+`0E8D:0717` (ASRock X870 Steel Legend WiFi, macOS 26.7.1, controller On as THIRD_PARTY_DONGLE), `13D3:3602` (ASUS ROG
+Strix B860-G, macOS 26.7.2, [mt7925-hackintosh-wifi #4](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi/issues/4)).
+A Dell Latitude 5421 on macOS 15.8.1 (24H32) with 0.2.4 also reports `ready` ([#2](https://github.com/watchthelight-labs/mt7925-hackintosh-bluetooth/issues/2)). The firmware and the
 loading protocol are the same for all of them. To see what your card reports:
 
 ```
