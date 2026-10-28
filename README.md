@@ -6,7 +6,8 @@ that enumerates as a normal HCI controller but answers nothing until its RAM cod
 loader for MediaTek parts, so `bluetoothd` sees an empty controller. MtkBt downloads the firmware, turns the Bluetooth
 function on and then lets go of the interface, and from there `bluetoothd` (with BlueToolFixup) drives it from user
 space like any third-party USB dongle: pairing, AirPods, LE devices. For OpenCore on macOS Sequoia 15 and Tahoe 26;
-written for a Lenovo Legion 5 15IAX10, confirmed on an ASRock X870 too.
+written for a Lenovo Legion 5 15IAX10, and reported working by users on four other machines (listed under
+[Which cards match](#which-cards-match)).
 
 ## The MT7925 set
 
@@ -23,21 +24,21 @@ A complete EFI that uses the set: [Legion-5-15IAX10-OpenCore](https://github.com
 
 | Version | Tested on | Result |
 |---|---|---|
-| 0.2.4 | Legion 5 15IAX10, macOS 26.7.1 (25G241) and 26.7.2 (25G332), OpenCore 1.0.8 | loaded on the Legion since N-261 (2026-10-23); changes since 0.2.0 are for other boards (more USB ids, the AMD RZ717 sleep-protection bypass, a warm-restart fix and a per-boot reset cap, reported in #1) and are not exercised on the Legion's own chip |
+| 0.2.4 | Legion 5 15IAX10, macOS 26.7.1 (25G241) and 26.7.2 (25G332), OpenCore 1.0.8 | loaded on the Legion since 2026-10-23; changes since 0.2.0 are for other boards (more USB ids, the AMD RZ717 sleep-protection bypass, a warm-restart fix and a per-boot reset cap, reported in #1) and are not exercised on the Legion's own chip |
 | 0.2.0 | Legion 5 15IAX10, macOS 26.7.1 (25G241), OpenCore 1.0.8, BlueToolFixup 2.7.2 | controller on at every boot since 2026-10-16; AirPods Pro pair, connect and play; `MtkBtState` = `ready`, 3 sections and 447,872 bytes sent, about 20 s from open to close on the current boot |
 | 0.1.0 | same laptop, macOS 15.8.1 (24H32) | first version that brought the controller up on cold boots |
 
 What the firmware answers for the FUNC_CTRL status word is not what Linux expects: this chip and firmware (build 20260813113236) return `0xffff` and Bluetooth still comes on, so the value is only recorded.
 
-The MT7925 has two things `bluetoothd` on macOS 26.7.1 does not expect (an LE connection quirk that crash-loops `bluetoothd`, and a Read Clock reply that leaves AirPods silent). Those are not firmware loading problems and live in a separate Lilu plugin, [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix). You want both.
+The MT7925 has two things `bluetoothd` on macOS Tahoe does not expect (an LE connection quirk that crash-loops `bluetoothd`, and a Read Clock reply that leaves AirPods silent). Those are not firmware loading problems and live in a separate Lilu plugin, [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix). You want both.
 
 ## What it can't do
 
 - It only loads firmware. Everything after that (pairing, audio, LE) is Apple's `bluetoothd` with BlueToolFixup's patches, and whatever the MT7925 firmware does with it.
 - Only chip id 0x7925 is touched; anything else on that USB id is left alone.
-- The half-loaded recovery path (subsystem reset after a warm reboot that left the firmware running) is implemented from the Linux driver but has not been seen to trigger on this laptop since 0.2.0, so it is untested on real hardware.
+- The half-loaded recovery path (subsystem reset after a warm reboot that left the firmware running) is implemented from the Linux driver. It has not triggered on the Legion since 0.2.0; on the ASUS B860 board in [mt7925-hackintosh-wifi #4](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi/issues/4) it ran once on 0.2.4 (`MtkBtWarmPath` = `no WMT event, subsys reset`, 2 tries) and the controller came up `ready`.
 - No sleep and wake handling (the laptop this runs on has sleep disabled). At power off and restart it sends FUNC_CTRL 0 so the next boot starts clean.
-- Tested on one laptop and one firmware build.
+- One firmware build (the one embedded here). Tested by me on one laptop; the other machines below are user reports.
 
 ## Which cards match
 
@@ -91,7 +92,7 @@ keys from the installation steps (`nvram -p | grep -i bluetooth` must list both)
    ```
 
    It depends only on IOUSBHostFamily and the kernel KPIs, not on Lilu.
-   On macOS 26.7.1 (25G241) also add [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix) after BlueToolFixup. Without it `bluetoothd` crashes every few seconds once an LE device is around (the MT7925 rejects an LE connection that uses a random address `bluetoothd` never set), and Bluetooth turns itself off a moment after it comes up. Seen on the Legion and on an ASRock X870.
+   On Tahoe also add [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix) after BlueToolFixup (0.3.0 for 26.7.1 and 26.7.2; 0.2.0 only patches 26.7.1). Without it `bluetoothd` crashes every few seconds once an LE device is around (the MT7925 rejects an LE connection that uses a random address `bluetoothd` never set), and Bluetooth turns itself off a moment after it comes up. Seen on the Legion and on an ASRock X870.
 
 4. Make sure the USB port the Bluetooth device sits on is enabled in your USB map. On the Legion 5 15IAX10 it is `HS14`, which Lenovo's firmware marks as not connectable, so the port needs a `_UPC` patch (in the OpenCore config of [Legion-5-15IAX10-OpenCore](https://github.com/watchthelight-labs/Legion-5-15IAX10-OpenCore)).
 5. Reboot and check:
@@ -136,7 +137,7 @@ keys from the installation steps (`nvram -p | grep -i bluetooth` must list both)
 tools/build-mac.sh      # macOS with the Xcode Command Line Tools; out/MtkBt.kext, prints the sha256
 ```
 
-`tools/gen_firmware.py` embeds `firmware/BT_RAM_CODE_MT7925_1_1_hdr.bin` after checking it against `firmware/SHA256SUMS`. The 0.2.0 release binary (sha256 `4f982556a6dd0edc...`, full value in the release notes) is the file that has been running on the test laptop; a clean build of this tree with Apple clang 17 reproduces it.
+`tools/gen_firmware.py` embeds `firmware/BT_RAM_CODE_MT7925_1_1_hdr.bin` after checking it against `firmware/SHA256SUMS`. A clean build of the 0.2.0 tree with Apple clang 17 reproduced the 0.2.0 release binary (sha256 `4f982556a6dd0edc...`, full value in its release notes). The test laptop runs 0.2.4 now.
 
 ## How it works
 
