@@ -1,4 +1,6 @@
-# MtkBt: MediaTek MT7925 Bluetooth firmware loader for macOS Hackintosh
+# WTLMtkBluetooth: MediaTek MT7925 Bluetooth firmware loader for macOS Hackintosh
+
+Renamed from `mt7925-hackintosh-bluetooth` on 2026-10-31; the kext is still `MtkBt.kext`, so existing OpenCore configs keep working. Old links redirect here.
 
 Bluetooth for the MediaTek MT7925 (Filogic 360, the Wi-Fi 7 card in many 2025 laptops and the AMD RZ717 on AM5
 boards) on a Hackintosh. The card's Bluetooth half is a USB device (`0489:E111` on the Legion, 20 other ids below)
@@ -13,12 +15,12 @@ written for a Lenovo Legion 5 15IAX10, and reported working by users on four oth
 
 | Repo | What it does |
 |---|---|
-| [mt7925-hackintosh-wifi](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi) | the Wi-Fi driver for the same card (cards table, comparison with SimpleMtkWlan) |
-| [mt7925-hackintosh-wifi-native](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi-native) | macOS's own Wi-Fi menu on top of the driver, no client app |
-| mt7925-hackintosh-bluetooth (this one) | the Bluetooth firmware loader |
-| [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix) | on Tahoe (0.3.0 covers 26.7.1 and 26.7.2): two `bluetoothd` patches the MT7925 needs (crash loop on LE connect, silent AirPods) |
+| [WTLMtkWireless](https://github.com/watchthelight-labs/WTLMtkWireless) | the Wi-Fi driver for the same card (cards table, comparison with SimpleMtkWlan) |
+| [WTLWifiMenu](https://github.com/watchthelight-labs/WTLWifiMenu) | macOS's own Wi-Fi menu on top of the driver, no client app |
+| WTLMtkBluetooth (this one) | the Bluetooth firmware loader |
+| [WTLLegionBtFix](https://github.com/watchthelight-labs/WTLLegionBtFix) | on Tahoe (0.3.0 covers 26.7.1 and 26.7.2): two `bluetoothd` patches the MT7925 needs (crash loop on LE connect, silent AirPods) |
 
-A complete EFI that uses the set: [Legion-5-15IAX10-OpenCore](https://github.com/watchthelight-labs/Legion-5-15IAX10-OpenCore).
+A complete EFI that uses the set: [WTLLegionOpenCore](https://github.com/watchthelight-labs/WTLLegionOpenCore).
 
 ## Status
 
@@ -30,13 +32,13 @@ A complete EFI that uses the set: [Legion-5-15IAX10-OpenCore](https://github.com
 
 What the firmware answers for the FUNC_CTRL status word is not what Linux expects: this chip and firmware (build 20260813113236) return `0xffff` and Bluetooth still comes on, so the value is only recorded.
 
-The MT7925 has two things `bluetoothd` on macOS Tahoe does not expect (an LE connection quirk that crash-loops `bluetoothd`, and a Read Clock reply that leaves AirPods silent). Those are not firmware loading problems and live in a separate Lilu plugin, [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix). You want both.
+The MT7925 has two things `bluetoothd` on macOS Tahoe does not expect (an LE connection quirk that crash-loops `bluetoothd`, and a Read Clock reply that leaves AirPods silent). Those are not firmware loading problems and live in a separate Lilu plugin, [WTLLegionBtFix](https://github.com/watchthelight-labs/WTLLegionBtFix). You want both.
 
 ## What it can't do
 
 - It only loads firmware. Everything after that (pairing, audio, LE) is Apple's `bluetoothd` with BlueToolFixup's patches, and whatever the MT7925 firmware does with it.
 - Only chip id 0x7925 is touched; anything else on that USB id is left alone.
-- The half-loaded recovery path (subsystem reset after a warm reboot that left the firmware running) is implemented from the Linux driver. It has not triggered on the Legion since 0.2.0; on the ASUS B860 board in [mt7925-hackintosh-wifi #4](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi/issues/4) it ran once on 0.2.4 (`MtkBtWarmPath` = `no WMT event, subsys reset`, 2 tries) and the controller came up `ready`.
+- The half-loaded recovery path (subsystem reset after a warm reboot that left the firmware running) is implemented from the Linux driver. It has not triggered on the Legion since 0.2.0; on the ASUS B860 board in [WTLMtkWireless #4](https://github.com/watchthelight-labs/WTLMtkWireless/issues/4) it ran once on 0.2.4 (`MtkBtWarmPath` = `no WMT event, subsys reset`, 2 tries) and the controller came up `ready`.
 - No sleep and wake handling (the laptop this runs on has sleep disabled). At power off and restart it sends FUNC_CTRL 0 so the next boot starts clean.
 - One firmware build (the one embedded here). Tested by me on one laptop; the other machines below are user reports.
 
@@ -47,8 +49,8 @@ MT7925 cards from different makers carry different USB ids for the Bluetooth hal
 E14F E150 E151`, IMC Networks `13D3:3588 3602 3603 3604`, MediaTek `0E8D:8C38`, plus MediaTek `0E8D:0717`, the AMD RZ717
 card on AM5 desktop boards (ASRock X870 Steel Legend WiFi and others). Tested: `0E8D:8C38` (HP OMEN 16-ap1xxx on 0.2.4, reported in [Game-5040/hackintosh-hp-8f06-macos26](https://github.com/Game-5040/hackintosh-hp-8f06-macos26)), `0489:E111` (the Legion 5 15IAX10) and
 `0E8D:0717` (ASRock X870 Steel Legend WiFi, macOS 26.7.1, controller On as THIRD_PARTY_DONGLE), `13D3:3602` (ASUS ROG
-Strix B860-G, macOS 26.7.2, [mt7925-hackintosh-wifi #4](https://github.com/watchthelight-labs/mt7925-hackintosh-wifi/issues/4)).
-A Dell Latitude 5421 on macOS 15.8.1 (24H32) with 0.2.4 also reports `ready` ([#2](https://github.com/watchthelight-labs/mt7925-hackintosh-bluetooth/issues/2)). The firmware and the
+Strix B860-G, macOS 26.7.2, [WTLMtkWireless #4](https://github.com/watchthelight-labs/WTLMtkWireless/issues/4)).
+A Dell Latitude 5421 on macOS 15.8.1 (24H32) with 0.2.4 also reports `ready` ([#2](https://github.com/watchthelight-labs/WTLMtkBluetooth/issues/2)). The firmware and the
 loading protocol are the same for all of them. To see what your card reports:
 
 ```
@@ -92,9 +94,9 @@ keys from the installation steps (`nvram -p | grep -i bluetooth` must list both)
    ```
 
    It depends only on IOUSBHostFamily and the kernel KPIs, not on Lilu.
-   On Tahoe also add [LegionBtFix](https://github.com/watchthelight-labs/LegionBtFix) after BlueToolFixup (0.3.0 for 26.7.1 and 26.7.2; 0.2.0 only patches 26.7.1). Without it `bluetoothd` crashes every few seconds once an LE device is around (the MT7925 rejects an LE connection that uses a random address `bluetoothd` never set), and Bluetooth turns itself off a moment after it comes up. Seen on the Legion and on an ASRock X870.
+   On Tahoe also add [WTLLegionBtFix](https://github.com/watchthelight-labs/WTLLegionBtFix) after BlueToolFixup (0.3.0 for 26.7.1 and 26.7.2; 0.2.0 only patches 26.7.1). Without it `bluetoothd` crashes every few seconds once an LE device is around (the MT7925 rejects an LE connection that uses a random address `bluetoothd` never set), and Bluetooth turns itself off a moment after it comes up. Seen on the Legion and on an ASRock X870.
 
-4. Make sure the USB port the Bluetooth device sits on is enabled in your USB map. On the Legion 5 15IAX10 it is `HS14`, which Lenovo's firmware marks as not connectable, so the port needs a `_UPC` patch (in the OpenCore config of [Legion-5-15IAX10-OpenCore](https://github.com/watchthelight-labs/Legion-5-15IAX10-OpenCore)).
+4. Make sure the USB port the Bluetooth device sits on is enabled in your USB map. On the Legion 5 15IAX10 it is `HS14`, which Lenovo's firmware marks as not connectable, so the port needs a `_UPC` patch (in the OpenCore config of [WTLLegionOpenCore](https://github.com/watchthelight-labs/WTLLegionOpenCore)).
 5. Reboot and check:
 
    ```
